@@ -1,7 +1,7 @@
-const jwt = require("jsonwebtoken");
-const secretKey = "hgdhet4546587698djrhegrx4232y54s3y6xG##@$^^U^";
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const { User } = require("../model/login");
+const secretKey = "hgdhet4546587698djrhegrx4232y54s3y6xG##@$^^U^";
 
 exports.login = async (req, res) => {
   try {
@@ -27,6 +27,28 @@ exports.login = async (req, res) => {
     res.status(200).json({ status: "ok", token: token });
   } catch (error) {
     console.log(error);
+  }
+};
+exports.userData = async (req, res) => {
+  try {
+    const token = req.headers.authorization?.replace("Bearer ", "");
+
+    if (token) {
+      const tokenData = jwt.verify(token, secretKey);
+      if (!tokenData) {
+        return res.status(200).json({ status: 500, message: "Invalid Token" });
+      }
+
+      return res.status(200).json({
+        status: "Success",
+        data: tokenData.userData,
+        token: token,
+      });
+    } else {
+      return res.status(200).json({ status: 500, message: "Invalid Token" });
+    }
+  } catch (error) {
+    res.status(500).json({ status: 500, message: "Internal server error" });
   }
 };
 
