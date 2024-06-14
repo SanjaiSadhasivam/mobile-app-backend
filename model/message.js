@@ -9,7 +9,7 @@ const messageSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
   },
-  message: String,
+  messages: String,
   timeStamp: {
     type: Date,
     default: Date.now,

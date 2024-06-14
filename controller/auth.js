@@ -24,7 +24,7 @@ exports.login = async (req, res) => {
     const token = jwt.sign({ userData: user }, secretKey, {
       expiresIn: "24h",
     });
-    res.status(200).json({ status: "ok", token: token });
+    res.status(200).json({ status: "ok", data: user, token: token });
   } catch (error) {
     console.log(error);
   }
