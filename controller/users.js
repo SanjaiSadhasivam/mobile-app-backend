@@ -12,16 +12,38 @@ exports.users = async (req, res) => {
 };
 
 exports.sendRequest = async (req, res) => {
-  const { senderId, receiverId, message } = req.body;
+  const { senderId, receiverId } = req.body;
+
   const receiver = await User.findById(receiverId);
   if (!receiver) {
     return res
       .status(404)
       .json({ status: "error", message: "Receiver not found" });
   }
-  receiver.requests.push({ from: senderId, message });
+  receiver.requests.push({ from: senderId });
   await receiver.save();
   res.status(200).json({ status: "ok", message: "Request sent successfully" });
+};
+
+exports.deleteRequest = async (req, res) => {
+  const { senderId, receiverId } = req.body;
+
+  const receiver = await User.findById(receiverId);
+  if (!receiver) {
+    return res
+      .status(404)
+      .json({ status: "error", message: "Receiver not found" });
+  }
+
+  receiver.requests = receiver.requests.filter(
+    (request) => request.from.toString() !== senderId
+  );
+
+  await receiver.save();
+
+  res
+    .status(200)
+    .json({ status: "ok", message: "Request deleted successfully" });
 };
 
 exports.getRequests = async (req, res) => {
@@ -49,11 +71,16 @@ exports.getRequests = async (req, res) => {
 exports.acceptRequest = async (req, res) => {
   try {
     const { userId, requestId } = req.body;
+
+    // Find the user by ID
     const user = await User.findById(userId);
     if (!user) {
-      res.status(404).json({ status: "Error", message: "User not found" });
+      return res
+        .status(404)
+        .json({ status: "Error", message: "User not found" });
     }
 
+    // Remove the request from the user's requests array
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       {
@@ -67,44 +94,74 @@ exports.acceptRequest = async (req, res) => {
         .json({ status: "Error", message: "Request not found" });
     }
 
+    // Add the requestId to the user's friends array using $addToSet
     await User.findByIdAndUpdate(userId, {
-      $push: { friends: requestId },
+      $addToSet: { friends: requestId },
     });
 
+    // Add the userId to the friend's friends array using $addToSet
     const friendUser = await User.findByIdAndUpdate(requestId, {
-      $push: { friends: userId },
+      $addToSet: { friends: userId },
     });
     if (!friendUser) {
       return res
         .status(404)
-        .json({ status: "error", message: "Friend not found" });
+        .json({ status: "Error", message: "Friend not found" });
     }
+
+    // Send a success response
     res
       .status(200)
       .json({ status: "ok", message: "Request accepted successfully" });
   } catch (error) {
     console.log(error);
+    res.status(500).json({ status: "Error", message: "Internal Server Error" });
   }
 };
 
 exports.user = async (req, res) => {
   try {
     const userId = req.params.userId;
-    const users = await User.findById(userId).populate("friends", "name email");
-    res.json(users.friends);
+
+    // Find user and populate friends
+    const user = await User.findById(userId).populate("friends", "name email");
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "User not found" });
+    }
+
+    const friendsWithRecentMessages = await Promise.all(
+      user.friends.map(async (friend) => {
+        const recentMessage = await Message.findOne({
+          $or: [
+            { senderId: friend._id, receiverId: userId },
+            { senderId: userId, receiverId: friend._id },
+          ],
+        })
+          .sort({ timeStamp: -1 })
+          .exec();
+
+        return {
+          ...friend.toObject(),
+          recentMessage,
+        };
+      })
+    );
+
+    res.json(friendsWithRecentMessages);
   } catch (error) {
     console.log(error);
+    res.status(500).json({ status: "error", message: "Internal server error" });
   }
 };
 
 exports.sendMessage = async (req, res) => {
-  console.log("called");
   const userSocketMap = {};
   try {
     const { senderId, receiverId, messages } = req.body;
-    console.log(senderId, "senderId");
-    console.log(receiverId, "receiverId");
-    console.log(messages, "message");
+
     const newMessage = new Message({
       senderId,
       receiverId,
@@ -113,13 +170,11 @@ exports.sendMessage = async (req, res) => {
     await newMessage.save();
 
     const receiverSocketId = userSocketMap[receiverId];
-
-    if (receiverSocketId) {
-      console.log("emitting receive message event to the receiver", receiverId);
-      io.to(receiverSocketId).emit("newMessage", newMessage);
-    } else {
-      console.log("Receiver socket id not found");
-    }
+    // if (receiverSocketId) {
+    //   io.to(receiverSocketId).emit("newMessage", newMessage);
+    // } else {
+    //   console.log("Receiver socket id not found");
+    // }
 
     res.status(201).json(newMessage);
   } catch (error) {
@@ -131,11 +186,14 @@ exports.message = async (req, res) => {
   try {
     const { senderId, receiverId } = req.query;
 
-    const message = await Message.find({
+    const messages = await Message.find({
       $or: [
         { senderId: senderId, receiverId: receiverId },
         { senderId: receiverId, receiverId: senderId },
       ],
-    });
-  } catch (error) {}
+    }).populate("senderId", "_id name");
+    res.status(200).json(messages);
+  } catch (error) {
+    console.log(error);
+  }
 };

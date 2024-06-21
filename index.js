@@ -8,16 +8,20 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json());
 app.use(cors());
 
-app.listen(PORT, () => {
-  console.log(`Server connected successfully on ${PORT}`);
-});
 const authentication = require("./routes/login");
+const path = require("path");
 app.use("/auth", authentication);
 
-const http = require("http").createServer(app);
+const { createServer } = require("http");
+const http = createServer(app);
+http.listen(PORT, () => {
+  console.log(`Server connected successfully on ${PORT}`);
+});
 
-const io = require("socket.io")(http);
-
+const { Server } = require("socket.io");
+const io = new Server(http, {
+  path: "/mySocket",
+});
 //{"userId" : "socket ID"}
 
 const userSocketMap = {};
@@ -34,26 +38,24 @@ io.on("connection", (socket) => {
   }
 
   console.log("user socket data", userSocketMap);
-
-  socket.on("disconnect", () => {
-    console.log("user disconnected", socket.id);
-    delete userSocketMap[userId];
+  socket.on("join", (roomid) => {
+    socket.join(roomid);
   });
-
-  socket.on("sendMessage", ({ senderId, receiverId, message }) => {
+  socket.on("sendMessage", ({ senderId, receiverId, messages, roomid }) => {
+    console.log(roomid, "msg");
     const receiverSocketId = userSocketMap[receiverId];
 
     console.log("receiver Id", receiverId);
 
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("receiveMessage", {
-        senderId,
-        message,
-      });
-    }
+    io.to(roomid).emit("newMessage", {
+      senderId,
+      messages,
+    });
+    // if (receiverSocketId) {
+    socket.on("disconnect", () => {
+      console.log("user disconnected", socket.id);
+      delete userSocketMap[userId];
+    });
+    // }
   });
-});
-
-http.listen(4000, () => {
-  console.log("Socket.IO running on port 4000");
 });

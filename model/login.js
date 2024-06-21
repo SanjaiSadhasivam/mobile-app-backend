@@ -12,10 +12,6 @@ const userSchema = new mongoose.Schema({
         ref: "User",
         required: true,
       },
-      message: {
-        type: String,
-        required: true,
-      },
       status: {
         type: String,
         enum: ["pending", "accepted", "rejected"],
