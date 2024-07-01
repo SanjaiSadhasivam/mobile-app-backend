@@ -19,6 +19,7 @@ http.listen(PORT, () => {
 });
 
 const { Server } = require("socket.io");
+const { AddMsgFromSocket } = require("./controller/users");
 const io = new Server(http, {
   path: "/mySocket",
 });
@@ -63,33 +64,44 @@ io.on("connection", (socket) => {
     console.log(activeUsers, "removedUser");
     io.emit("activeUsers", activeUsers);
   });
-  socket.on("sendMessage", ({ senderId, receiverId, messages, roomid }) => {
-    // socket.to(roomid).emit("notification", messages);
+  socket.on(
+    "sendMessage",
+    async ({ senderId, receiverId, messages, roomid, timeStamp }) => {
+      // socket.to(roomid).emit("notification", messages);
 
-    io.to(receiverId).emit("notification", messages);
+      io.to(receiverId).emit("notification", messages);
+      const newMsg = await AddMsgFromSocket({
+        senderId,
+        receiverId,
+        messages,
+      }).then((data) => data);
+      console.log(newMsg.timeStamp, "msg");
+      if (newMsg) {
+        io.to(roomid).emit("newMessage", {
+          senderId,
+          messages,
+          timeStamp: newMsg.timeStamp,
+        });
+      }
 
-    io.to(roomid).emit("newMessage", {
-      senderId,
-      messages,
-    });
+      if (receiverId in unreadMessages) {
+        unreadMessages[receiverId]++;
+      } else {
+        unreadMessages[receiverId] = 1;
+      }
 
-    if (receiverId in unreadMessages) {
-      unreadMessages[receiverId]++;
-    } else {
-      unreadMessages[receiverId] = 1;
+      // Emit the updated unread message count to the receiver
+      io.to(receiverId).emit("unreadMessageCount", {
+        to: receiverId,
+        count: unreadMessages[receiverId],
+      });
+
+      socket.on("disconnect", () => {
+        console.log("user disconnected", socket.id);
+      });
+      // }
     }
-
-    // Emit the updated unread message count to the receiver
-    io.to(receiverId).emit("unreadMessageCount", {
-      to: receiverId,
-      count: unreadMessages[receiverId],
-    });
-
-    socket.on("disconnect", () => {
-      console.log("user disconnected", socket.id);
-    });
-    // }
-  });
+  );
   socket.on("markMessagesAsRead", (receiverId) => {
     unreadMessages[receiverId] = 0;
     io.to(receiverId).emit("unreadMessageCount", {

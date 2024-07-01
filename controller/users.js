@@ -170,18 +170,28 @@ exports.sendMessage = async (req, res) => {
     await newMessage.save();
 
     const receiverSocketId = userSocketMap[receiverId];
-    // if (receiverSocketId) {
-    //   io.to(receiverSocketId).emit("newMessage", newMessage);
-    // } else {
-    //   console.log("Receiver socket id not found");
-    // }
 
     res.status(201).json(newMessage);
   } catch (error) {
     console.log(error);
   }
 };
+exports.AddMsgFromSocket = async (data) => {
+  try {
+    const { senderId, receiverId, messages } = data;
 
+    const newMessage = new Message({
+      senderId,
+      receiverId,
+      messages,
+    });
+    await newMessage.save();
+
+    return newMessage;
+  } catch (error) {
+    console.log(error);
+  }
+};
 exports.message = async (req, res) => {
   try {
     const { senderId, receiverId } = req.query;
