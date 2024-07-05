@@ -10,6 +10,7 @@ const {
   message,
   user,
   deleteRequest,
+  deleteMessages,
 } = require("../controller/users");
 const router = express.Router();
 
@@ -26,4 +27,5 @@ router.post("/acceptrequest", acceptRequest);
 router.post("/sendMessage", sendMessage);
 router.get("/messages", message);
 router.get("/user/:userId", user);
+router.delete("/deleteMessages", deleteMessages);
 module.exports = router;

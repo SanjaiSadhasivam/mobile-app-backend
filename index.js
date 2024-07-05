@@ -19,7 +19,10 @@ http.listen(PORT, () => {
 });
 
 const { Server } = require("socket.io");
-const { AddMsgFromSocket } = require("./controller/users");
+const {
+  AddMsgFromSocket,
+  sendRequestFromSocket,
+} = require("./controller/users");
 const io = new Server(http, {
   path: "/mySocket",
 });
@@ -75,7 +78,7 @@ io.on("connection", (socket) => {
         receiverId,
         messages,
       }).then((data) => data);
-      console.log(newMsg.timeStamp, "msg");
+
       if (newMsg) {
         io.to(roomid).emit("newMessage", {
           senderId,
@@ -102,6 +105,21 @@ io.on("connection", (socket) => {
       // }
     }
   );
+
+  socket.on("sentrequest", async ({ userData }) => {
+    socket.to(userData.receiverId).emit("getRequest", userData);
+  });
+  socket.on("deleteRequest", async ({ userData }) => {
+    console.log(userData.data.receiverId, "receiverId");
+
+    socket.to(userData.data.receiverId).emit("getRequest", userData);
+  });
+  socket.on("deleteSenderRequest", async ({ userData }) => {
+    console.log(userData.data.senderId, "receiverId");
+
+    socket.to(userData.data.senderId).emit("getRequest", userData);
+  });
+
   socket.on("markMessagesAsRead", (receiverId) => {
     unreadMessages[receiverId] = 0;
     io.to(receiverId).emit("unreadMessageCount", {

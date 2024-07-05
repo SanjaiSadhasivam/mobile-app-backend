@@ -146,6 +146,7 @@ exports.user = async (req, res) => {
         return {
           ...friend.toObject(),
           recentMessage,
+          receiverId: recentMessage ? recentMessage.receiverId : null,
         };
       })
     );
@@ -192,6 +193,21 @@ exports.AddMsgFromSocket = async (data) => {
     console.log(error);
   }
 };
+exports.sendRequestFromSocket = async (data) => {
+  const { senderId, receiverId } = data;
+
+  const receiver = await User.findById(receiverId);
+  if (!receiver) {
+    return res
+      .status(404)
+      .json({ status: "error", message: "Receiver not found" });
+    return false;
+  }
+  receiver.requests.push({ from: senderId });
+  await receiver.save();
+  res.status(200).json({ status: "ok", message: "Request sent successfully" });
+  return true;
+};
 exports.message = async (req, res) => {
   try {
     const { senderId, receiverId } = req.query;
@@ -205,5 +221,33 @@ exports.message = async (req, res) => {
     res.status(200).json(messages);
   } catch (error) {
     console.log(error);
+  }
+};
+
+exports.deleteMessages = async (req, res) => {
+  console.log("messageIds:", req.body.messageIds);
+  try {
+    const { messageIds } = req.body;
+
+    if (!Array.isArray(messageIds)) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Invalid input" });
+    }
+
+    const result = await Message.deleteMany({ _id: { $in: messageIds } });
+
+    if (result.deletedCount === 0) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "No messages found to delete" });
+    }
+
+    res
+      .status(200)
+      .json({ status: "ok", message: "Messages deleted successfully" });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ status: "error", message: "Internal server error" });
   }
 };
