@@ -105,20 +105,42 @@ io.on("connection", (socket) => {
       // }
     }
   );
-
+  // ---------------------Request-------------------------------
   socket.on("sentrequest", async ({ userData }) => {
     socket.to(userData.receiverId).emit("getRequest", userData);
   });
   socket.on("deleteRequest", async ({ userData }) => {
-    console.log(userData.data.receiverId, "receiverId");
-
     socket.to(userData.data.receiverId).emit("getRequest", userData);
   });
   socket.on("deleteSenderRequest", async ({ userData }) => {
-    console.log(userData.data.senderId, "receiverId");
-
     socket.to(userData.data.senderId).emit("getRequest", userData);
   });
+  socket.on("deleteMessage", async ({ messageIds, roomID }) => {
+    socket.to(roomID).emit("messagesDeleted", messageIds);
+  });
+  socket.on("requestAccepted", async ({ userId, requestId }) => {
+    socket.to(requestId).emit("requestAcceptedFromReceiver", requestId);
+  });
+
+  // ---------------------Request-------------------------------
+
+  // ---------------------------------Video call--------------------------------------
+  socket.on("offer", (offer) => {
+    console.log("Received offer:", offer);
+    socket.broadcast.emit("offer", offer);
+  });
+
+  socket.on("answer", (answer) => {
+    console.log("Received answer:", answer);
+    socket.broadcast.emit("answer", answer);
+  });
+
+  socket.on("iceCandidate", (candidate) => {
+    console.log("Received ICE candidate:", candidate);
+    socket.broadcast.emit("iceCandidate", candidate);
+  });
+
+  // ---------------------------------Video call--------------------------------------
 
   socket.on("markMessagesAsRead", (receiverId) => {
     unreadMessages[receiverId] = 0;
